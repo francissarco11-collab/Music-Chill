@@ -1,0 +1,398 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global default-deny safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isValidTrackArray(arr) {
+      return arr is list && arr.size() <= 100 && (arr.size() == 0 || (arr[0] is string && arr[0].size() >= 1 && arr[0].size() <= 64));
+    }
+
+    function isValidUserProfile(data) {
+      return data.keys().hasAll([
+        'uid', 'displayName', 'handle', 'avatarUrl', 'bio',
+        'favoriteTrackIds', 'totalListeningMinutes', 'createdAt', 'updatedAt'
+      ])
+      && data.keys().hasOnly([
+        'uid', 'displayName', 'handle', 'avatarUrl', 'bio',
+        'favoriteTrackIds', 'totalListeningMinutes', 'createdAt', 'updatedAt'
+      ])
+      && isValidId(data.uid)
+      && data.uid == request.auth.uid
+      && data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 60
+      && data.handle is string && data.handle.size() >= 2 && data.handle.size() <= 40 && data.handle.matches('^@[a-zA-Z0-9_\\.]+$')
+      && data.avatarUrl is string && data.avatarUrl.size() >= 1 && data.avatarUrl.size() <= 512
+      && data.bio is string && data.bio.size() <= 240
+      && isValidTrackArray(data.favoriteTrackIds)
+      && data.totalListeningMinutes is number && data.totalListeningMinutes >= 0 && data.totalListeningMinutes <= 10000000
+      && data.createdAt is timestamp
+      && data.updatedAt is timestamp;
+    }
+
+    function isValidUserPrivateInfo(data) {
+      return data.keys().hasAll(['uid', 'email', 'updatedAt'])
+      && data.keys().hasOnly(['uid', 'email', 'updatedAt'])
+      && isValidId(data.uid)
+      && data.uid == request.auth.uid
+      && data.email is string && data.email.size() >= 3 && data.email.size() <= 254
+      && data.updatedAt is timestamp;
+    }
+
+    function isValidCloudSyncState(data) {
+      return data.keys().hasAll([
+        'uid', 'syncCode', 'currentTrackId', 'positionSec', 'isPlaying',
+        'activeDeviceId', 'activeDeviceName', 'fidelity', 'queueTrackIds', 'updatedAt'
+      ])
+      && data.keys().hasOnly([
+        'uid', 'syncCode', 'currentTrackId', 'positionSec', 'isPlaying',
+        'activeDeviceId', 'activeDeviceName', 'fidelity', 'queueTrackIds', 'updatedAt'
+      ])
+      && isValidId(data.uid)
+      && data.uid == request.auth.uid
+      && data.syncCode is string && data.syncCode.size() >= 4 && data.syncCode.size() <= 24 && data.syncCode.matches('^[A-Z0-9\\-]+$')
+      && isValidId(data.currentTrackId)
+      && data.positionSec is number && data.positionSec >= 0 && data.positionSec <= 7200
+      && data.isPlaying is bool
+      && isValidId(data.activeDeviceId)
+      && data.activeDeviceName is string && data.activeDeviceName.size() >= 1 && data.activeDeviceName.size() <= 60
+      && data.fidelity in ['lossless', 'high']
+      && isValidTrackArray(data.queueTrackIds)
+      && data.updatedAt is timestamp;
+    }
+
+    function isValidActivityEntry(data) {
+      return data.keys().hasAll(['id', 'uid', 'type', 'deviceName', 'createdAt'])
+      && data.keys().hasOnly(['id', 'uid', 'type', 'trackId', 'playlistId', 'playlistName', 'deviceName', 'createdAt'])
+      && isValidId(data.id)
+      && isValidId(data.uid)
+      && data.uid == request.auth.uid
+      && data.type in ['played', 'favorited', 'downloaded', 'shared']
+      && (!('trackId' in data) || (data.trackId is string && data.trackId.size() <= 64))
+      && (!('playlistId' in data) || (data.playlistId is string && data.playlistId.size() <= 128))
+      && (!('playlistName' in data) || (data.playlistName is string && data.playlistName.size() <= 80))
+      && data.deviceName is string && data.deviceName.size() >= 1 && data.deviceName.size() <= 60
+      && data.createdAt is timestamp;
+    }
+
+    function isValidPlaylist(data) {
+      return data.keys().hasAll([
+        'id', 'ownerId', 'ownerName', 'ownerHandle', 'name',
+        'description', 'coverUrl', 'trackIds', 'isPublic', 'createdAt', 'updatedAt'
+      ])
+      && data.keys().hasOnly([
+        'id', 'ownerId', 'ownerName', 'ownerHandle', 'name',
+        'description', 'coverUrl', 'trackIds', 'isPublic', 'shareCode', 'createdAt', 'updatedAt'
+      ])
+      && isValidId(data.id)
+      && isValidId(data.ownerId)
+      && data.ownerId == request.auth.uid
+      && data.ownerName is string && data.ownerName.size() >= 1 && data.ownerName.size() <= 60
+      && data.ownerHandle is string && data.ownerHandle.size() >= 2 && data.ownerHandle.size() <= 40
+      && data.name is string && data.name.size() >= 1 && data.name.size() <= 80
+      && data.description is string && data.description.size() <= 240
+      && data.coverUrl is string && data.coverUrl.size() >= 1 && data.coverUrl.size() <= 512
+      && isValidTrackArray(data.trackIds)
+      && data.isPublic is bool
+      && (!('shareCode' in data) || (data.shareCode is string && data.shareCode.size() <= 24))
+      && data.createdAt is timestamp
+      && data.updatedAt is timestamp;
+    }
+
+    function isValidSharedPost(data) {
+      return data.keys().hasAll([
+        'id', 'shareCode', 'playlistId', 'playlistName', 'playlistDescription',
+        'coverUrl', 'trackIds', 'note', 'authorId', 'authorName', 'authorHandle',
+        'authorAvatarUrl', 'likesCount', 'savesCount', 'isPublished', 'createdAt', 'updatedAt'
+      ])
+      && data.keys().hasOnly([
+        'id', 'shareCode', 'playlistId', 'playlistName', 'playlistDescription',
+        'coverUrl', 'trackIds', 'note', 'authorId', 'authorName', 'authorHandle',
+        'authorAvatarUrl', 'likesCount', 'savesCount', 'isPublished', 'createdAt', 'updatedAt'
+      ])
+      && isValidId(data.id)
+      && data.shareCode is string && data.shareCode.size() >= 4 && data.shareCode.size() <= 24 && data.shareCode.matches('^[A-Z0-9\\-]+$')
+      && isValidId(data.playlistId)
+      && data.playlistName is string && data.playlistName.size() >= 1 && data.playlistName.size() <= 80
+      && data.playlistDescription is string && data.playlistDescription.size() <= 240
+      && data.coverUrl is string && data.coverUrl.size() >= 1 && data.coverUrl.size() <= 512
+      && isValidTrackArray(data.trackIds)
+      && data.note is string && data.note.size() <= 280
+      && isValidId(data.authorId)
+      && data.authorName is string && data.authorName.size() >= 1 && data.authorName.size() <= 60
+      && data.authorHandle is string && data.authorHandle.size() >= 2 && data.authorHandle.size() <= 40
+      && data.authorAvatarUrl is string && data.authorAvatarUrl.size() >= 1 && data.authorAvatarUrl.size() <= 512
+      && data.likesCount is number && data.likesCount >= 0 && data.likesCount <= 1000000
+      && data.savesCount is number && data.savesCount >= 0 && data.savesCount <= 1000000
+      && data.isPublished is bool && data.isPublished == true
+      && data.createdAt is timestamp
+      && data.updatedAt is timestamp;
+    }
+
+    function isValidPostLike(data, postId, userId) {
+      return data.keys().hasAll(['uid', 'postId', 'createdAt'])
+      && data.keys().hasOnly(['uid', 'postId', 'createdAt'])
+      && isValidId(data.uid)
+      && data.uid == userId
+      && data.uid == request.auth.uid
+      && isValidId(data.postId)
+      && data.postId == postId
+      && data.createdAt is timestamp;
+    }
+
+    function isValidPostComment(data, postId) {
+      return data.keys().hasAll([
+        'id', 'postId', 'authorId', 'authorName', 'authorHandle', 'text', 'isPublished', 'createdAt'
+      ])
+      && data.keys().hasOnly([
+        'id', 'postId', 'authorId', 'authorName', 'authorHandle', 'text', 'isPublished', 'createdAt'
+      ])
+      && isValidId(data.id)
+      && isValidId(data.postId)
+      && data.postId == postId
+      && isValidId(data.authorId)
+      && data.authorId == request.auth.uid
+      && data.authorName is string && data.authorName.size() >= 1 && data.authorName.size() <= 60
+      && data.authorHandle is string && data.authorHandle.size() >= 2 && data.authorHandle.size() <= 40
+      && data.text is string && data.text.size() >= 1 && data.text.size() <= 240
+      && data.isPublished is bool && data.isPublished == true
+      && data.createdAt is timestamp;
+    }
+
+    // 1. User Profiles (PII-isolated)
+    match /users/{userId} {
+      allow get: if isValidId(userId) && isOwner(userId);
+      allow list: if isSignedIn() && resource.data.uid == request.auth.uid;
+
+      allow create: if isVerifiedUser()
+        && isValidId(userId)
+        && isOwner(userId)
+        && isValidUserProfile(incoming())
+        && incoming().uid == userId
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+
+      allow update: if isVerifiedUser()
+        && isValidId(userId)
+        && isOwner(userId)
+        && isValidUserProfile(incoming())
+        && incoming().uid == existing().uid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          incoming().diff(existing()).affectedKeys().hasOnly(['favoriteTrackIds', 'updatedAt']) ||
+          incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'handle', 'bio', 'avatarUrl', 'updatedAt']) ||
+          incoming().diff(existing()).affectedKeys().hasOnly(['totalListeningMinutes', 'updatedAt'])
+        );
+
+      allow delete: if isVerifiedUser() && isValidId(userId) && isOwner(userId);
+
+      // Isolated PII
+      match /private/{docId} {
+        allow get: if isValidId(userId) && isValidId(docId) && isOwner(userId);
+        allow list: if isSignedIn() && resource.data.uid == request.auth.uid;
+        allow create: if isVerifiedUser()
+          && isValidId(userId)
+          && isValidId(docId)
+          && isOwner(userId)
+          && isValidUserPrivateInfo(incoming())
+          && incoming().uid == userId
+          && incoming().updatedAt == request.time;
+        allow update: if isVerifiedUser()
+          && isValidId(userId)
+          && isValidId(docId)
+          && isOwner(userId)
+          && isValidUserPrivateInfo(incoming())
+          && incoming().uid == existing().uid
+          && incoming().updatedAt == request.time
+          && incoming().diff(existing()).affectedKeys().hasOnly(['email', 'updatedAt']);
+        allow delete: if isVerifiedUser() && isValidId(userId) && isValidId(docId) && isOwner(userId);
+      }
+
+      // Cross-device cloud sync state
+      match /sync/{syncDocId} {
+        allow get: if isValidId(userId) && isValidId(syncDocId) && isOwner(userId);
+        allow list: if isSignedIn() && resource.data.uid == request.auth.uid;
+        allow create: if isVerifiedUser()
+          && isValidId(userId)
+          && isValidId(syncDocId)
+          && isOwner(userId)
+          && isValidCloudSyncState(incoming())
+          && incoming().uid == userId
+          && incoming().updatedAt == request.time;
+        allow update: if isVerifiedUser()
+          && isValidId(userId)
+          && isValidId(syncDocId)
+          && isOwner(userId)
+          && isValidCloudSyncState(incoming())
+          && incoming().uid == existing().uid
+          && incoming().updatedAt == request.time
+          && (
+            incoming().diff(existing()).affectedKeys().hasOnly(['currentTrackId', 'positionSec', 'isPlaying', 'queueTrackIds', 'updatedAt']) ||
+            incoming().diff(existing()).affectedKeys().hasOnly(['activeDeviceId', 'activeDeviceName', 'currentTrackId', 'positionSec', 'isPlaying', 'updatedAt']) ||
+            incoming().diff(existing()).affectedKeys().hasOnly(['fidelity', 'updatedAt']) ||
+            incoming().diff(existing()).affectedKeys().hasOnly(['syncCode', 'updatedAt'])
+          );
+        allow delete: if isVerifiedUser() && isValidId(userId) && isValidId(syncDocId) && isOwner(userId);
+      }
+
+      // User recent activity log
+      match /activity/{activityId} {
+        allow get: if isValidId(userId) && isValidId(activityId) && isOwner(userId);
+        allow list: if isSignedIn() && resource.data.uid == request.auth.uid;
+        allow create: if isVerifiedUser()
+          && isValidId(userId)
+          && isValidId(activityId)
+          && isOwner(userId)
+          && isValidActivityEntry(incoming())
+          && incoming().id == activityId
+          && incoming().uid == userId
+          && incoming().createdAt == request.time;
+        allow update: if false;
+        allow delete: if isVerifiedUser() && isValidId(userId) && isValidId(activityId) && isOwner(userId);
+      }
+    }
+
+    // 2. Playlists
+    match /playlists/{playlistId} {
+      allow get: if isValidId(playlistId) && isSignedIn() && (existing().isPublic == true || existing().ownerId == request.auth.uid);
+      allow list: if isSignedIn() && (resource.data.isPublic == true || resource.data.ownerId == request.auth.uid);
+
+      allow create: if isVerifiedUser()
+        && isValidId(playlistId)
+        && isValidPlaylist(incoming())
+        && incoming().id == playlistId
+        && incoming().ownerId == request.auth.uid
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+
+      allow update: if isVerifiedUser()
+        && isValidId(playlistId)
+        && isValidPlaylist(incoming())
+        && existing().ownerId == request.auth.uid
+        && incoming().id == existing().id
+        && incoming().ownerId == existing().ownerId
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          incoming().diff(existing()).affectedKeys().hasOnly(['trackIds', 'updatedAt']) ||
+          incoming().diff(existing()).affectedKeys().hasOnly(['name', 'description', 'isPublic', 'shareCode', 'updatedAt'])
+        );
+
+      allow delete: if isVerifiedUser() && isValidId(playlistId) && existing().ownerId == request.auth.uid;
+    }
+
+    // 3. Social Hub Shared Playlists
+    match /sharedPosts/{postId} {
+      allow get: if isValidId(postId) && isSignedIn() && existing().isPublished == true;
+      allow list: if isSignedIn() && resource.data.isPublished == true;
+
+      allow create: if isVerifiedUser()
+        && isValidId(postId)
+        && isValidSharedPost(incoming())
+        && incoming().id == postId
+        && incoming().authorId == request.auth.uid
+        && incoming().likesCount == 0
+        && incoming().savesCount == 0
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+
+      allow update: if isVerifiedUser()
+        && isValidId(postId)
+        && isValidSharedPost(incoming())
+        && incoming().id == existing().id
+        && incoming().authorId == existing().authorId
+        && incoming().shareCode == existing().shareCode
+        && incoming().playlistId == existing().playlistId
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          // Action: Owner edits note
+          (existing().authorId == request.auth.uid && incoming().diff(existing()).affectedKeys().hasOnly(['note', 'updatedAt'])) ||
+          // Action: Atomic Like increment paired with /likes/{uid} create
+          (
+            incoming().diff(existing()).affectedKeys().hasOnly(['likesCount', 'updatedAt']) &&
+            incoming().likesCount == existing().likesCount + 1 &&
+            existsAfter(/databases/$(database)/documents/sharedPosts/$(postId)/likes/$(request.auth.uid))
+          ) ||
+          // Action: Atomic Like decrement paired with /likes/{uid} delete
+          (
+            incoming().diff(existing()).affectedKeys().hasOnly(['likesCount', 'updatedAt']) &&
+            incoming().likesCount == existing().likesCount - 1 &&
+            !existsAfter(/databases/$(database)/documents/sharedPosts/$(postId)/likes/$(request.auth.uid))
+          ) ||
+          // Action: Save counter increment
+          (
+            incoming().diff(existing()).affectedKeys().hasOnly(['savesCount', 'updatedAt']) &&
+            incoming().savesCount == existing().savesCount + 1
+          )
+        );
+
+      allow delete: if isVerifiedUser() && isValidId(postId) && existing().authorId == request.auth.uid;
+
+      match /likes/{userId} {
+        allow get: if isValidId(postId) && isValidId(userId) && isOwner(userId);
+        allow list: if isSignedIn() && resource.data.uid == request.auth.uid;
+
+        allow create: if isVerifiedUser()
+          && isValidId(postId)
+          && isValidId(userId)
+          && isOwner(userId)
+          && isValidPostLike(incoming(), postId, userId)
+          && incoming().createdAt == request.time
+          && exists(/databases/$(database)/documents/sharedPosts/$(postId))
+          && getAfter(/databases/$(database)/documents/sharedPosts/$(postId)).data.likesCount == get(/databases/$(database)/documents/sharedPosts/$(postId)).data.likesCount + 1;
+
+        allow update: if false;
+
+        allow delete: if isVerifiedUser()
+          && isValidId(postId)
+          && isValidId(userId)
+          && isOwner(userId)
+          && exists(/databases/$(database)/documents/sharedPosts/$(postId))
+          && getAfter(/databases/$(database)/documents/sharedPosts/$(postId)).data.likesCount == get(/databases/$(database)/documents/sharedPosts/$(postId)).data.likesCount - 1;
+      }
+
+      match /comments/{commentId} {
+        allow get: if isValidId(postId) && isValidId(commentId) && isSignedIn() && existing().isPublished == true;
+        allow list: if isSignedIn() && resource.data.isPublished == true;
+
+        allow create: if isVerifiedUser()
+          && isValidId(postId)
+          && isValidId(commentId)
+          && isValidPostComment(incoming(), postId)
+          && incoming().id == commentId
+          && incoming().createdAt == request.time
+          && exists(/databases/$(database)/documents/sharedPosts/$(postId));
+
+        allow update: if false;
+        allow delete: if isVerifiedUser() && isValidId(postId) && isValidId(commentId) && existing().authorId == request.auth.uid;
+      }
+    }
+  }
+}

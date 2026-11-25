@@ -1,0 +1,6 @@
+{
+  "name": "Music chill",
+  "description": "High-fidelity music streaming with unlimited skips, lossless offline listening, social playlist sharing, and seamless cross-device cloud sync.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

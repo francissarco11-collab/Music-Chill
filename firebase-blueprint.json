@@ -1,0 +1,172 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User profile document without raw PII in the root collection.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "displayName": { "type": "string", "minLength": 1, "maxLength": 60 },
+        "handle": { "type": "string", "minLength": 2, "maxLength": 40, "pattern": "^@[a-zA-Z0-9_\\.]+$" },
+        "avatarUrl": { "type": "string", "minLength": 1, "maxLength": 512 },
+        "bio": { "type": "string", "maxLength": 240 },
+        "favoriteTrackIds": { "type": "array" },
+        "totalListeningMinutes": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "displayName", "handle", "avatarUrl", "bio", "favoriteTrackIds", "totalListeningMinutes", "createdAt", "updatedAt"]
+    },
+    "UserPrivateInfo": {
+      "title": "UserPrivateInfo",
+      "description": "Isolated PII document storing user email strictly for owner access.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "email": { "type": "string", "format": "email", "maxLength": 254 },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "updatedAt"]
+    },
+    "CloudSyncState": {
+      "title": "CloudSyncState",
+      "description": "Cross-device playback and fidelity synchronization document.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "syncCode": { "type": "string", "minLength": 4, "maxLength": 24, "pattern": "^[A-Z0-9\\-]+$" },
+        "currentTrackId": { "type": "string", "minLength": 1, "maxLength": 64, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "positionSec": { "type": "number" },
+        "isPlaying": { "type": "boolean" },
+        "activeDeviceId": { "type": "string", "minLength": 1, "maxLength": 64, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "activeDeviceName": { "type": "string", "minLength": 1, "maxLength": 60 },
+        "fidelity": { "type": "string", "enum": ["lossless", "high"] },
+        "queueTrackIds": { "type": "array" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "syncCode", "currentTrackId", "positionSec", "isPlaying", "activeDeviceId", "activeDeviceName", "fidelity", "queueTrackIds", "updatedAt"]
+    },
+    "ActivityEntry": {
+      "title": "ActivityEntry",
+      "description": "Chronological user listening, favorite, offline download, and share activity.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "type": { "type": "string", "enum": ["played", "favorited", "downloaded", "shared"] },
+        "trackId": { "type": "string", "maxLength": 64 },
+        "playlistId": { "type": "string", "maxLength": 128 },
+        "playlistName": { "type": "string", "maxLength": 80 },
+        "deviceName": { "type": "string", "minLength": 1, "maxLength": 60 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "uid", "type", "deviceName", "createdAt"]
+    },
+    "Playlist": {
+      "title": "Playlist",
+      "description": "User-owned playlist with optional public share code.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "ownerId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "ownerName": { "type": "string", "minLength": 1, "maxLength": 60 },
+        "ownerHandle": { "type": "string", "minLength": 2, "maxLength": 40 },
+        "name": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "description": { "type": "string", "maxLength": 240 },
+        "coverUrl": { "type": "string", "minLength": 1, "maxLength": 512 },
+        "trackIds": { "type": "array" },
+        "isPublic": { "type": "boolean" },
+        "shareCode": { "type": "string", "maxLength": 24 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "ownerId", "ownerName", "ownerHandle", "name", "description", "coverUrl", "trackIds", "isPublic", "createdAt", "updatedAt"]
+    },
+    "SharedPost": {
+      "title": "SharedPost",
+      "description": "Playlist shared to the Music chill Social Hub.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "shareCode": { "type": "string", "minLength": 4, "maxLength": 24, "pattern": "^[A-Z0-9\\-]+$" },
+        "playlistId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "playlistName": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "playlistDescription": { "type": "string", "maxLength": 240 },
+        "coverUrl": { "type": "string", "minLength": 1, "maxLength": 512 },
+        "trackIds": { "type": "array" },
+        "note": { "type": "string", "maxLength": 280 },
+        "authorId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "authorName": { "type": "string", "minLength": 1, "maxLength": 60 },
+        "authorHandle": { "type": "string", "minLength": 2, "maxLength": 40 },
+        "authorAvatarUrl": { "type": "string", "minLength": 1, "maxLength": 512 },
+        "likesCount": { "type": "number" },
+        "savesCount": { "type": "number" },
+        "isPublished": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "shareCode", "playlistId", "playlistName", "playlistDescription", "coverUrl", "trackIds", "note", "authorId", "authorName", "authorHandle", "authorAvatarUrl", "likesCount", "savesCount", "isPublished", "createdAt", "updatedAt"]
+    },
+    "SharedPostLike": {
+      "title": "SharedPostLike",
+      "description": "Atomic reaction record for a shared playlist post.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "postId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "postId", "createdAt"]
+    },
+    "SharedPostComment": {
+      "title": "SharedPostComment",
+      "description": "Friend listening note on a shared playlist.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "postId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "authorId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "authorName": { "type": "string", "minLength": 1, "maxLength": 60 },
+        "authorHandle": { "type": "string", "minLength": 2, "maxLength": 40 },
+        "text": { "type": "string", "minLength": 1, "maxLength": 240 },
+        "isPublished": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "postId", "authorId", "authorName", "authorHandle", "text", "isPublished", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "Owner-scoped user profile and favorite tracks."
+    },
+    "/users/{userId}/private/{docId}": {
+      "schema": { "$ref": "#/entities/UserPrivateInfo" },
+      "description": "Isolated PII document storing user email strictly for owner."
+    },
+    "/users/{userId}/sync/{syncDocId}": {
+      "schema": { "$ref": "#/entities/CloudSyncState" },
+      "description": "Cross-device playback sync state."
+    },
+    "/users/{userId}/activity/{activityId}": {
+      "schema": { "$ref": "#/entities/ActivityEntry" },
+      "description": "User recent activity log."
+    },
+    "/playlists/{playlistId}": {
+      "schema": { "$ref": "#/entities/Playlist" },
+      "description": "User playlists with owner write protection and optional public sharing."
+    },
+    "/sharedPosts/{postId}": {
+      "schema": { "$ref": "#/entities/SharedPost" },
+      "description": "Playlists published to the Social Hub."
+    },
+    "/sharedPosts/{postId}/likes/{userId}": {
+      "schema": { "$ref": "#/entities/SharedPostLike" },
+      "description": "Atomic likes subcollection for shared playlists."
+    },
+    "/sharedPosts/{postId}/comments/{commentId}": {
+      "schema": { "$ref": "#/entities/SharedPostComment" },
+      "description": "Comments on shared playlists."
+    }
+  }
+}
